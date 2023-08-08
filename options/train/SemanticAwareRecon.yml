@@ -1,0 +1,108 @@
+name: SemanticAware_margin
+use_tb_logger: true
+model_type: SemanticAwareSelfSupervisedModel
+scale: 1
+num_gpu: 1  # set num_gpu: 0 for cpu mode
+manual_seed: 10
+#### datasets
+
+datasets:
+  train:
+    name: ImageNet-C
+    type: PairedImageSemanticAwareDataset
+    dataroot_gt: 
+    dataroot_lq: 
+    filename_tmpl: '{}'
+    io_backend:
+      type: disk
+
+    gt_size: 64
+    use_flip: true
+    use_rot: true
+
+    # data loader
+    use_shuffle: true
+    num_worker_per_gpu: 2
+    batch_size_per_gpu: 16
+    dataset_enlarge_ratio: 10
+    prefetch_mode: ~
+
+  val:
+    name: ImageNet-C
+    type: PairedImageDataset
+    dataroot_gt: 
+    dataroot_lq: 
+    io_backend:
+      type: disk
+
+
+#### network structures
+network_g:
+  type: SemanticAwareNet
+  channels: 64
+
+
+#### path
+path:
+  pretrain_network_g: ~
+  strict_load_g: true
+  resume_state: ~
+
+
+#### training settings: learning rate scheme, loss
+train:
+  ema_decay: 0.999
+  optim_g:
+    type: Adam
+    lr: !!float 2e-4
+    weight_decay: 0
+    betas: [0.9, 0.999]
+
+  scheduler:
+    type: MultiStepLR
+    milestones: [20000, 40000, 60000, 80000, 100000]
+    gamma: 0.5
+
+  total_iter: 300000
+  warmup_iter: -1  # no warm up
+  dual: False
+
+  # losses
+  recon_opt:
+    type: L1Loss
+    loss_weight: !!float 1
+  lqRecon_opt:
+    type: L1Loss
+    loss_weight: !!float 0.1
+  margin_opt:
+    type: L_MarginRanking
+    loss_weight: !!float 1
+    margin: 0.5
+    target: 1
+  PearsonScore_opt:
+    type: L_CosSimiliarity
+    loss_weight: !!float 0
+
+val:
+  val_freq: !!float 20000
+  save_img: true
+
+  metrics:
+    psnr: # metric name, can be arbitrary
+      type: calculate_psnr
+      crop_border: 0
+      test_y_channel: false
+    psnr_lq: # metric name, can be arbitrary
+      type: calculate_psnr
+      crop_border: 0
+      test_y_channel: false
+
+
+#### logger
+logger:
+  print_freq: 1
+  save_checkpoint_freq: !!float 3000
+  use_tb_logger: true
+  wandb:
+    project: ~
+    resume_id: ~
